@@ -201,32 +201,6 @@ Here’s a breakdown of the **response** from the `/protected/secure-data` endpo
 
 ---
 
-## ⚙️ **Running the Project Locally**
-
-To run this project locally, follow these steps:
-
-1. **Clone the repository**:
-
-```bash
-git clone https://github.com/your-username/auth-microservices.git
-cd auth-microservices
-```
-
-2. **Set up your environment variables** (for local development).
-
-3. **Install dependencies**:
-
-```bash
-go mod tidy
-```
-
-4. **Start the server**:
-
-```bash
-go run main.go
-```
-
----
 
 ## 🐳 **Docker Setup**
 
