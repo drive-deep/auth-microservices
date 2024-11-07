@@ -1,30 +1,29 @@
 package controllers
 
 import (
+	"log"
 	"net/http"
 
-	"github.com/drive-deep/auth-microservices/config"
-	"github.com/drive-deep/auth-microservices/models"
+	"github.com/drive-deep/auth-microservices/config" // Update this path to your actual project path
+	"github.com/drive-deep/auth-microservices/models" // Update this path to your actual project path
+
 	"github.com/gofiber/fiber/v2"
 )
 
-// GetUserDetails handles the route to fetch user details
+// GetUserDetails handles GET requests to fetch all user details
 func GetUserDetails(c *fiber.Ctx) error {
-	// Retrieve the email of the user from the JWT token (using middleware)
-	email := c.Locals("email").(string)
+	// Define a slice to hold the list of users
+	var users []models.User
 
-	// Query the user from the database by their email using go-pg
-	var user models.User
-	err := config.DB.Model(&user).Where("email = ?", email).Select()
+	// Fetch all users from the database
+	err := config.DB.Model(&users).Select()
 	if err != nil {
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{
-			"error": "User not found",
+		log.Printf("Error fetching users: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch users",
 		})
 	}
 
-	// Return the user details
-	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"id":    user.ID,
-		"email": user.Email,
-	})
+	// Return the list of users in JSON format
+	return c.Status(http.StatusOK).JSON(users)
 }

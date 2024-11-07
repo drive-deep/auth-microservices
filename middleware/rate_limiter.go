@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"os"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -14,7 +15,7 @@ var ctx = context.Background()
 func RateLimitMiddleware(c *fiber.Ctx) error {
 	// Set up Redis client (assumes Redis is running on localhost:6379)
 	client := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379", // Change this if Redis is hosted elsewhere
+		Addr: os.Getenv("REDIS_HOST"), // Change this if Redis is hosted elsewhere
 	})
 
 	// Use the client's Get function to fetch the count of requests for the IP

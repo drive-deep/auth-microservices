@@ -5,7 +5,9 @@ import (
 	"log"
 	"os"
 
+	"github.com/drive-deep/auth-microservices/models"
 	"github.com/go-pg/pg/v10"
+	"github.com/go-pg/pg/v10/orm"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -14,7 +16,6 @@ var DB *pg.DB
 
 // InitDB initializes the database connection using go-pg
 func InitDB() {
-	// Load environment variables from .env file
 
 	// Retrieve the PostgreSQL credentials from environment variables
 	dbHost := os.Getenv("DB_HOST")
@@ -38,6 +39,12 @@ func InitDB() {
 	}
 
 	log.Println("Successfully connected to the database")
+
+	// Create tables at startup
+	err := createSchema(DB)
+	if err != nil {
+		log.Fatal("Error creating schema:", err)
+	}
 }
 
 // SetupAppConfig sets up the application-wide configurations like middleware, logging, etc.
@@ -50,4 +57,22 @@ func SetupAppConfig(app *fiber.App) {
 	})
 
 	// You can add more global middleware, such as authentication, error handling, etc.
+}
+
+func createSchema(db *pg.DB) error {
+	models := []interface{}{
+		(*models.User)(nil), // Add other models here as needed
+	}
+
+	for _, model := range models {
+		err := db.Model(model).CreateTable(&orm.CreateTableOptions{
+			IfNotExists: true,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	log.Println("Database schema created successfully")
+	return nil
 }
