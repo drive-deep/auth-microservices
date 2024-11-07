@@ -13,4 +13,7 @@ func SetupRoutes(app *fiber.App) {
 	SetupUserRoutes(app)
 	// Setup protected data route
 	ProtectedDataRoute(app) // Add this line to include protected route
+
+	// Setup refresh token route
+	RefreshTokenRoute(app) // Add this line to register the refresh route
 }
