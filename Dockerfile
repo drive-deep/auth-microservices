@@ -19,7 +19,8 @@ ENV DB_HOST=db \
     DB_NAME=auth_db \
     JWT_SECRET=mysecret \
     REDIS_HOST=redis \
-    REDIS_PORT=6379
+    REDIS_PORT=6379 \
+    JWT_SECRET=mySuperSecretKey123!
 
 # Build the Go application
 WORKDIR /app/cmd/auth-service

@@ -1,92 +1,130 @@
 package controllers
 
 import (
+	"log"
 	"net/http"
 	"time"
 
+	"github.com/drive-deep/auth-microservices/auth"
 	"github.com/drive-deep/auth-microservices/config"
 	"github.com/drive-deep/auth-microservices/models"
+	"github.com/go-pg/pg/v10"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v4"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/google/uuid"
 )
 
-// SignUp handles user signup
+type SignUpRequest struct {
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
+// SignUp handles user sign-up
+// SignUp handles user sign-up
 func SignUp(c *fiber.Ctx) error {
-	var user models.User
-	if err := c.BodyParser(&user); err != nil {
+	// Parse the request body
+	var req SignUpRequest
+	if err := c.BodyParser(&req); err != nil {
+		log.Printf("Error parsing request body: %v", err)
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request",
+			"error": "Invalid input data",
 		})
 	}
 
-	// Hash the user's password
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	// Validate input (you can add more validation if needed)
+	if req.Email == "" || req.Password == "" || req.FirstName == "" || req.LastName == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Missing required fields",
+		})
+	}
+
+	// Check if the email already exists in the database using CheckEmailExists
+	emailExists, err := CheckEmailExists(config.DB, req.Email)
 	if err != nil {
+		log.Printf("Error checking email existence: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to hash password",
+			"error": "Internal server error",
 		})
 	}
-	user.Password = string(hash)
 
-	// Save the user in the database using go-pg
+	// If the email already exists, return a 400 Bad Request with the error message
+	if emailExists {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Email already exists",
+			"request": req, // Include the request body in the response
+		})
+	}
+
+	// Proceed with sign-up since the email does not exist
+	// Generate a salt
+	salt, err := auth.GenerateSalt()
+	if err != nil {
+		log.Printf("Error generating salt: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Hash the password with the salt
+	hashedPassword, err := auth.HashPasswordWithSalt(req.Password, salt)
+	if err != nil {
+		log.Printf("Error hashing password: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Create a new user object
+	user := models.User{
+		ID:        uuid.New().String(),
+		Email:     req.Email,
+		Password:  string(hashedPassword), // Store hashed password
+		Salt:      salt,                   // Store salt
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// Save the user to the database
 	_, err = config.DB.Model(&user).Insert()
 	if err != nil {
+		log.Printf("Error inserting user into database: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create user",
 		})
 	}
 
+	// Return success response
 	return c.Status(http.StatusCreated).JSON(fiber.Map{
 		"message": "User created successfully",
+		"user":    req,
 	})
 }
 
 // Login handles user login and JWT token generation
+// Login handles user login and JWT token generation
 func Login(c *fiber.Ctx) error {
-	var loginData struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
 
-	if err := c.BodyParser(&loginData); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request",
-		})
-	}
-
-	// Query the user from the database by email using go-pg
-	var user models.User
-	err := config.DB.Model(&user).Where("email = ?", loginData.Email).Select()
-	if err != nil {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid email or password",
-		})
-	}
-
-	// Compare the provided password with the stored password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginData.Password)); err != nil {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid email or password",
-		})
-	}
-
-	// Create JWT token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"email": user.Email,
-		"exp":   time.Now().Add(time.Hour * 72).Unix(), // Correct expiration handling
-	})
-
-	// Sign the token with a secret key
-	tokenString, err := token.SignedString([]byte("your_jwt_secret_key"))
-	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to generate token",
-		})
-	}
-
-	// Respond with the token
 	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"token": tokenString,
+		"token": "tokenString",
 	})
+}
+
+// Update CheckEmailExists function to use the correct version of pg.DB
+func CheckEmailExists(db *pg.DB, email string) (bool, error) {
+	var user models.User
+	err := db.Model(&user).Where("email = ?", email).Select()
+
+	// Check if no rows were found
+	if err == pg.ErrNoRows {
+		return false, nil // Email does not exist
+	} else if err != nil {
+		// Database error other than no rows found
+		return false, err
+	}
+
+	// If no error, it means the email already exists
+	return true, nil
 }

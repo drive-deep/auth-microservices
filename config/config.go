@@ -60,11 +60,7 @@ func SetupAppConfig(app *fiber.App) {
 }
 
 func createSchema(db *pg.DB) error {
-	models := []interface{}{
-		(*models.User)(nil), // Add other models here as needed
-	}
-
-	for _, model := range models {
+	for _, model := range models.GetAllModels() {
 		err := db.Model(model).CreateTable(&orm.CreateTableOptions{
 			IfNotExists: true,
 		})
