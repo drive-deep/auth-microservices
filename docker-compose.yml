@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  auth-service:
+    build: . # Builds from the current directory
+    container_name: auth_service
+    ports:
+      - "8080:8080" # Maps container port 8080 to host port 8080
+    depends_on:
+      - db # Waits for the db container to start first
+      - redis # Waits for the redis container to start first
+    environment:
+      - DB_HOST=db # Points to the db service as the database host
+      - DB_PORT=5432 # PostgreSQL default port
+      - DB_USER=postgres # Database user
+      - DB_PASSWORD=postgres # Database password
+      - DB_NAME=auth_db # Database name
+      - JWT_SECRET=mysecret # JWT Secret for auth
+      - REDIS_HOST=redis # Redis host address (points to the redis service)
+      - REDIS_PORT=6379 # Redis default port
+    # Optionally, you can add health checks to ensure the service is ready
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+    #   interval: 30s
+    #   retries: 3
+
+  db:
+    image: postgres:13 # Official PostgreSQL image
+    container_name: postgres
+    ports:
+      - "5432:5432" # Maps the container's PostgreSQL port to the host's port
+    environment:
+      POSTGRES_USER: postgres # User for PostgreSQL
+      POSTGRES_PASSWORD: postgres # Password for PostgreSQL
+      POSTGRES_DB: auth_db # Database to be created
+    volumes:
+      - db_data:/var/lib/postgresql/data # Persistent storage for database data
+
+  redis:
+    image: redis:7 # Official Redis image
+    container_name: redis
+    ports:
+      - "6379:6379" # Maps Redis port to host port
+    volumes:
+      - redis_data:/data # Persistent storage for Redis data
+
+volumes:
+  db_data: {} # Persistent storage volume for PostgreSQL
+  redis_data: {} # Persistent storage volume for Redis
