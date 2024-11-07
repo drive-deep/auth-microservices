@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -74,6 +75,10 @@ func SignUp(c *fiber.Ctx) error {
 			"error": "Internal server error",
 		})
 	}
+	fmt.Println(req.Password)
+	fmt.Println(salt)
+	fmt.Println(hashedPassword)
+	fmt.Println(string(hashedPassword))
 
 	// Create a new user object
 	user := models.User{
@@ -103,12 +108,78 @@ func SignUp(c *fiber.Ctx) error {
 	})
 }
 
-// Login handles user login and JWT token generation
+// LoginRequest struct to capture login details
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 // Login handles user login and JWT token generation
 func Login(c *fiber.Ctx) error {
+	var req LoginRequest
 
+	// Parse the request body
+	if err := c.BodyParser(&req); err != nil {
+		log.Printf("Error parsing request body: %v", err)
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid input data",
+		})
+	}
+
+	// Check if the user exists using CheckEmailExists
+	emailExists, err := CheckEmailExists(config.DB, req.Email)
+	if err != nil {
+		log.Printf("Error checking email existence: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// If the user does not exist, return a 400 error
+	if !emailExists {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "User not registered",
+		})
+	}
+
+	// Retrieve the user from the database
+	var user models.User
+	err = config.DB.Model(&user).Where("email = ?", req.Email).Select()
+	if err != nil {
+		log.Printf("Error querying user: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+
+	// Hash the provided password with the salt stored in the DB
+	hashedPassword, err := auth.HashPasswordWithSalt(req.Password, user.Salt)
+	if err != nil {
+		log.Printf("Error hashing password: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error generating hashed password",
+		})
+	}
+	
+	// Compare the generated hash with the stored password hash
+	if string(hashedPassword) != user.Password {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid credentials",
+		})
+	}
+
+	// Generate JWT token
+	token, err := auth.GenerateToken(user.ID, user.Email, 1)
+	if err != nil {
+		log.Printf("Error generating JWT token: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error generating token",
+		})
+	}
+
+	// Return the JWT token
 	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"token": "tokenString",
+		"token": token,
 	})
 }
 

@@ -2,14 +2,15 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var jwtSecret = []byte(os.Getenv("JWT_SECRET")) // Replace with a secure key
@@ -72,13 +73,26 @@ func GenerateSalt() (string, error) {
 }
 
 // HashPasswordWithSalt hashes the password with the provided salt and returns the hashed password
+// HashPasswordWithFixedSalt hashes the password with a fixed salt and returns the hashed password
 func HashPasswordWithSalt(password, salt string) (string, error) {
+	// Trim any leading or trailing whitespace from both the password and fixed salt
+	password = strings.TrimSpace(password)
+	salt = strings.TrimSpace(salt)
+
 	// Combine the password and salt
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password+salt), bcrypt.DefaultCost)
+	passwordWithSalt := password + salt
+
+	// Create a new SHA-256 hash
+	hash := sha256.New()
+	_, err := hash.Write([]byte(passwordWithSalt))
 	if err != nil {
-		log.Printf("Error hashing password: %v", err)
+		log.Printf("Error creating SHA-256 hash: %v", err)
 		return "", err
 	}
 
-	return string(hashedPassword), nil
+	// Get the final hash as a hexadecimal string
+	hashedPassword := hex.EncodeToString(hash.Sum(nil))
+
+	// Return the hashed password
+	return hashedPassword, nil
 }
