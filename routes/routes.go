@@ -11,4 +11,6 @@ func SetupRoutes(app *fiber.App) {
 
 	// Setup user-related routes
 	SetupUserRoutes(app)
+	// Setup protected data route
+	ProtectedDataRoute(app) // Add this line to include protected route
 }

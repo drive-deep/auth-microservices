@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -75,10 +74,6 @@ func SignUp(c *fiber.Ctx) error {
 			"error": "Internal server error",
 		})
 	}
-	fmt.Println(req.Password)
-	fmt.Println(salt)
-	fmt.Println(hashedPassword)
-	fmt.Println(string(hashedPassword))
 
 	// Create a new user object
 	user := models.User{
@@ -160,7 +155,7 @@ func Login(c *fiber.Ctx) error {
 			"error": "Error generating hashed password",
 		})
 	}
-	
+
 	// Compare the generated hash with the stored password hash
 	if string(hashedPassword) != user.Password {
 		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{

@@ -96,3 +96,42 @@ func HashPasswordWithSalt(password, salt string) (string, error) {
 	// Return the hashed password
 	return hashedPassword, nil
 }
+
+// ValidateToken validates a JWT token string by checking its expiration and signature.
+// It returns the claims if valid or an error if invalid.
+func ValidateToken(tokenString string) (*jwt.MapClaims, error) {
+	// Parse the token and validate the claims
+	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+		// Ensure the signing method is HMAC (HS256)
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		// Return the JWT secret key for validation
+		return jwtSecret, nil
+	})
+
+	// If there was an error parsing the token, return it
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if the token is valid
+	if !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+
+	// Extract the claims from the token
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("could not parse token claims")
+	}
+
+	// Validate the expiration time
+	expiration, ok := claims["exp"].(float64)
+	if !ok || time.Unix(int64(expiration), 0).Before(time.Now()) {
+		return nil, errors.New("token is expired")
+	}
+
+	// Return the valid claims
+	return &claims, nil
+}
